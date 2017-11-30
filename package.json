@@ -1,0 +1,25 @@
+{
+  "name": "wikipedia-categories",
+  "version": "1.0.0",
+  "description": "Wikipedia Categories Graph",
+  "main": "index.js",
+  "author": "Gregor Middell <gregor@middell.net>",
+  "license": "MIT",
+  "private": true,
+  "bin": "./cli.js",
+  "dependencies": {
+    "n3": "^0.11.2",
+    "node-fetch": "^1.7.3"
+  },
+  "scripts": {
+    "start": "node cli.js CO2-Bilanz Gentrifizierung",
+    "test": "mocha test.js"
+  },
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "chai-as-promised": "^7.1.1",
+    "eslint": "^4.12.1",
+    "mocha": "^4.0.1",
+    "moment": "^2.19.3"
+  }
+}

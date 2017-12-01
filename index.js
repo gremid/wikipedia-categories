@@ -10,15 +10,13 @@ const { getLiteralValue } = N3.Util;
 const baseUrl = "https://dumps.wikimedia.org/other/categoriesrdf";
 
 function latest(lang="de") {
-    const latestUrl = `${baseUrl}/lastdump/${lang}wiki-categories.last`;
-    return fetch(latestUrl).then(res => res.text().then(ts => ts.trim()));
+    const url = `${baseUrl}/lastdump/${lang}wiki-categories.last`;
+    return fetch(url).then(res => res.text().then(ts => ts.trim()));
 }
 
 function triples(ts, lang="de") {
-    const url = (ts) =>`${baseUrl}/${ts}/${lang}wiki-${ts}-categories.ttl.gz`;
-    return fetch(url(ts))
-        .then(res => res.body)
-        .then(gzStream => gzStream.pipe(zlib.createGunzip()));
+    const url = `${baseUrl}/${ts}/${lang}wiki-${ts}-categories.ttl.gz`;
+    return fetch(url).then(res => res.body.pipe(zlib.createGunzip()));
 }
 
 function parse(ttlStream) {
@@ -31,7 +29,7 @@ function parse(ttlStream) {
             containment: {}
         };
         const { iris, ids, labels, containment } = graph;
-        const registered = (iri) => {
+        const id = (iri) => {
             let id = ids[iri];
             if (id) {
                 return id;
@@ -50,16 +48,16 @@ function parse(ttlStream) {
                 case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
                     switch (object) {
                     case "https://www.mediawiki.org/ontology#Category":
-                        registered(subject);
+                        id(subject);
                     }
                     break;
                 case "http://www.w3.org/2000/01/rdf-schema#label": {
-                    labels[registered(subject)] = getLiteralValue(object);
+                    labels[id(subject)] = getLiteralValue(object);
                     break;
                 }
                 case "https://www.mediawiki.org/ontology#isInCategory": {
-                    const sub = registered(subject);
-                    const sup = registered(object);
+                    const sub = id(subject);
+                    const sup = id(object);
                     containment[sub] = containment[sub] || [];
                     containment[sub].push(sup);
                     break;
@@ -97,31 +95,27 @@ function cached(lang="de") {
         (err, stat) => err ? resolve(false) : resolve(stat.isFile())
     ));
 
-    return stored.then(exists => {
-        if (exists) {
-            return load(lang);
-        }
-        return latest()
-            .then(triples).then(parse)
-            .then(graph => store(graph, lang).then(() => graph));
-    });
+    return stored.then(
+        exists => exists ? load(lang) : latest()
+            .then(ts => triples(ts, lang)).then(parse)
+            .then(graph => store(graph, lang).then(() => graph)));
 }
 
 function containment(graph, iri) {
     const { ids, containment } = graph;
+
+    const iriId = ids[iri];
+
     const result = {};
-    const frontier = [];
-    if (ids[iri]) {
-        frontier.push(ids[iri]);
-    }
+    const frontier = iriId ? [ iriId ] : [];
+
     while (frontier.length > 0) {
         const id = frontier.shift();
         if (result[id]) {
             continue;
         }
-        result[id] = true;
-
-        (containment[id] || []).forEach(sup => frontier.push(sup));
+        (result[id] = containment[id] || [])
+            .forEach(sup => frontier.push(sup));
     }
     return result;
 }
